@@ -123,6 +123,7 @@ def get_default_qa_model(
         if (
             model_host_type == ModelHostType.HUGGINGFACE.value
             or model_host_type == ModelHostType.COLAB_DEMO.value
+            or model_host_type == ModelHostType.AI_FOR_THE_CHURCH.value
         ):
             # Assuming user is hosting the smallest size LLMs with weaker capabilities and token limits
             # With the 7B Llama2 Chat model, there is a max limit of 1512 tokens
