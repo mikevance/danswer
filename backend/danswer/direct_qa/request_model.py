@@ -24,6 +24,7 @@ from danswer.direct_qa.qa_utils import process_model_tokens
 from danswer.direct_qa.qa_utils import simulate_streaming_response
 from danswer.utils.logger import setup_logger
 from danswer.utils.timing import log_function_time
+from typing import Generator, Optional
 
 
 logger = setup_logger()
@@ -186,11 +187,85 @@ class ColabDemoRequestModel(HostSpecificRequestModel):
         yield from simulate_streaming_response(model_out)
 
 
+class AiForTheChurchRequestModel(HostSpecificRequestModel):
+    @staticmethod
+    def send_model_request(
+        filled_prompt: str,
+        endpoint: str,
+        api_key: Optional[str],
+        max_output_tokens: int,
+        stream: bool,  # Not supported by Inference Endpoints (as of Aug 2023)
+        timeout: Optional[int],
+    ) -> Response:
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+
+        # Construct the data according to the AiForTheChurch API requirements
+        data = {
+            "model": "accounts/southeastchristian/models/default",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a helpful Christian assistant." # Adjust this as necessary
+                },
+                {
+                    "role": "user",
+                    "content": filled_prompt
+                }
+            ],
+            # Add the rest of the required/optional parameters here
+            "max_tokens": max_output_tokens,
+            "context_length_exceeded_behavior": "truncate",
+            "temperature": 0.4,
+            "top_p": 1,
+            "top_k": 50,
+            "n": 1,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "stream": stream,
+            "context_length_exceeded_behavior": "truncate"
+        }
+
+        try:
+            return requests.post(endpoint, headers=headers, json=data, timeout=timeout)
+        except Timeout as error:
+            raise Timeout(f"Model inference to {endpoint} timed out") from error
+
+    @staticmethod
+    def extract_model_output_from_response(
+        response: Response,
+    ) -> str:
+        if response.status_code != 200:
+            response.raise_for_status()
+
+        # Adjust extraction process based on AiForTheChurch API response structure
+        response_json = response.json()
+        chat_completion_choice = response_json.get("choices", [{}])[0]  # Assuming there's at least one choice
+        message_content = chat_completion_choice.get("message", {}).get("content", "")
+
+        return message_content
+
+    @staticmethod
+    def generate_model_tokens_from_response(
+        response: Response,
+    ) -> Generator[str, None, None]:
+        # Implement this method if the endpoint supports streaming
+        # If not, you might keep the simulation or adjust accordingly
+        raise NotImplementedError("Streaming is not supported by the AiForTheChurch API as of now.")
+
+        # Or simulate streaming response
+        # model_out = AiForTheChurchRequestModel.extract_model_output_from_response(response)
+        # yield from simulate_streaming_response(model_out)
+
 def get_host_specific_model_class(model_host_type: str) -> HostSpecificRequestModel:
     if model_host_type == ModelHostType.HUGGINGFACE.value:
         return HuggingFaceRequestModel()
     if model_host_type == ModelHostType.COLAB_DEMO.value:
         return ColabDemoRequestModel()
+    if model_host_type == ModelHostType.AI_FOR_THE_CHURCH.value:
+        return AiForTheChurchRequestModel()
     else:
         # TODO support Azure, GCP, AWS
         raise ValueError("Invalid model hosting service selected")

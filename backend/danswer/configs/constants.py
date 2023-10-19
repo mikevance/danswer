@@ -102,6 +102,7 @@ class ModelHostType(str, Enum):
     HUGGINGFACE = "huggingface"  # HuggingFace test-generation Inference API
     # https://medium.com/@yuhongsun96/host-a-llama-2-api-on-gpu-for-free-a5311463c183
     COLAB_DEMO = "colab-demo"
+    AI_FOR_THE_CHURCH = "AiForTheChurch"
     # TODO support for Azure, AWS, GCP GenAI model hosting
 
 
